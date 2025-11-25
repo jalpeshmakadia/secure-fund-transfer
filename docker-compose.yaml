@@ -1,0 +1,133 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: secure-fund-transfer-php
+    volumes:
+      - .:/var/www/html
+    environment:
+      - APP_ENV=${APP_ENV:-dev}
+      - APP_DEBUG=${APP_DEBUG:-1}
+      - APP_SECRET=${APP_SECRET:-change-this-secret-key-in-production}
+      - DATABASE_URL=mysql://root:rootpassword@database:3306/secure_fund?serverVersion=8.0
+      - REDIS_URL=redis://redis:6379
+      - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  messenger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: secure-fund-transfer-messenger
+    volumes:
+      - .:/var/www/html
+    environment:
+      - APP_ENV=${APP_ENV:-dev}
+      - APP_DEBUG=${APP_DEBUG:-1}
+      - APP_SECRET=${APP_SECRET:-change-this-secret-key-in-production}
+      - DATABASE_URL=mysql://root:rootpassword@database:3306/secure_fund?serverVersion=8.0
+      - REDIS_URL=redis://redis:6379
+      - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    command: php bin/console messenger:consume async -vv --memory-limit=512M
+
+  nginx:
+    image: nginx:alpine
+    container_name: secure-fund-transfer-nginx
+    ports:
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  database:
+    image: mysql:${MYSQL_VERSION:-8.0}
+    container_name: secure-fund-transfer-mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-secure_fund}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-!ChangeMe!}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - database_data:/var/lib/mysql:rw
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:${REDIS_VERSION:-7-alpine}
+    container_name: secure-fund-transfer-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 3s
+      retries: 5
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data:rw
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:${RABBITMQ_VERSION:-3-management-alpine}
+    container_name: secure-fund-transfer-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq:rw
+    networks:
+      - app-network
+    restart: unless-stopped
+
+
+volumes:
+  database_data:
+  redis_data:
+  rabbitmq_data:
+
+
+networks:
+  app-network:
+    driver: bridge
+
