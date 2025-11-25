@@ -110,21 +110,43 @@ This project includes Docker configuration for easy development and deployment.
 Create a `.env` file in the project root with the following variables:
 
 ```env
+# Application Configuration
 APP_ENV=dev
 APP_DEBUG=1
 APP_SECRET=your-secret-key-here
 APP_PORT=8000
+DEFAULT_URI=http://localhost
 
+# Database Configuration
+DATABASE_URL="mysql://root:rootpassword@database:3306/secure_fund?serverVersion=8.0"
 MYSQL_VERSION=8.0
-MYSQL_DATABASE=app
+MYSQL_DATABASE=secure_fund
 MYSQL_USER=app
 MYSQL_PASSWORD=!ChangeMe!
 MYSQL_ROOT_PASSWORD=rootpassword
 MYSQL_PORT=3306
 
+# Redis Configuration
+REDIS_URL=redis://redis:6379
 REDIS_VERSION=7-alpine
 REDIS_PORT=6379
+
+# RabbitMQ Configuration
+MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f
+RABBITMQ_VERSION=3-management-alpine
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_PORT=5672
+RABBITMQ_MANAGEMENT_PORT=15672
+
+# Testing Configuration (optional)
+# TEST_TOKEN=  # Set by ParaTest for parallel test execution
 ```
+
+**Note**: 
+- For production, set `APP_ENV=prod` and `APP_DEBUG=0`
+- Change `APP_SECRET` to a strong, randomly generated value in production
+- Update database credentials and connection strings for production use
 
 ### Common Commands
 
@@ -545,11 +567,27 @@ tests/
 
 Ensure the following are set in production:
 
+**Application Configuration:**
 - `APP_ENV=prod`
-- `APP_DEBUG=false`
+- `APP_DEBUG=0` (or `false`)
 - `APP_SECRET`: Strong, randomly generated secret
-- `DATABASE_URL`: Production database connection
-- `REDIS_URL`: Production Redis connection
+- `APP_PORT`: Application port (default: 8000)
+- `DEFAULT_URI`: Base URL for the application
+
+**Database Configuration:**
+- `DATABASE_URL`: Production database connection string
+- `MYSQL_DATABASE`: Production database name
+- `MYSQL_USER`: Production database user
+- `MYSQL_PASSWORD`: Production database password
+- `MYSQL_ROOT_PASSWORD`: Production database root password
+
+**Redis Configuration:**
+- `REDIS_URL`: Production Redis connection URL
+
+**RabbitMQ Configuration:**
+- `MESSENGER_TRANSPORT_DSN`: Production RabbitMQ connection string
+- `RABBITMQ_USER`: Production RabbitMQ user
+- `RABBITMQ_PASSWORD`: Production RabbitMQ password
 
 ### Security Checklist
 
